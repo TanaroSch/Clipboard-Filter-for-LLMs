@@ -8,6 +8,7 @@ from time import sleep
 from pystray import Icon, Menu, MenuItem
 from PIL import Image
 import threading
+import os
 
 # Set up logging
 logging.basicConfig(filename='clipboard_regex_replace.log', level=logging.DEBUG,
@@ -20,7 +21,7 @@ def load_config():
             return json.load(f)
     except Exception as e:
         logging.error(f"Failed to load config: {str(e)}")
-        return []
+        return {}
 
 
 def replace_clipboard_text():
@@ -30,7 +31,8 @@ def replace_clipboard_text():
         logging.info(f"Original text: {text}")
 
         # Load the config
-        replacements = load_config()
+        config = load_config()
+        replacements = config.get('replacements', [])
 
         # Apply all regex replacements
         for replacement in replacements:
@@ -59,33 +61,56 @@ def exit_action(icon):
     icon.stop()
 
 
-def setup_keyboard():
+def setup_keyboard(hotkey):
     try:
-        keyboard.add_hotkey('ctrl+alt+v', replace_clipboard_text)
-        logging.info("Hotkey registered successfully")
+        keyboard.add_hotkey(hotkey, replace_clipboard_text)
+        logging.info(f"Hotkey {hotkey} registered successfully")
     except Exception as e:
         logging.error(f"Failed to register hotkey: {str(e)}")
         logging.error(traceback.format_exc())
 
 
-def run_script():
-    setup_keyboard()
+def run_script(hotkey):
+    setup_keyboard(hotkey)
     logging.info("Script is running in the background.")
 
 
-# Create a simple menu
-menu = Menu(MenuItem('Exit', exit_action))
+def load_icon(icon_path):
+    if icon_path and os.path.exists(icon_path):
+        try:
+            return Image.open(icon_path)
+        except Exception as e:
+            logging.error(f"Failed to load icon: {str(e)}")
 
-# Create a system tray icon
-image = Image.new('RGB', (64, 64), color=(255, 0, 0))
-icon = Icon("Clipboard Regex Replace", image, "Clipboard Regex Replace", menu)
+    # Default to red square if icon_path is not provided or invalid
+    return Image.new('RGB', (64, 64), color=(255, 0, 0))
 
-# Run the script in a separate thread
-script_thread = threading.Thread(target=run_script)
-script_thread.start()
 
-# Run the system tray icon
-icon.run()
+def main():
+    config = load_config()
+    hotkey = config.get('hotkey', 'ctrl+alt+v')
+    icon_path = config.get('icon_path')
 
-# When the icon is stopped, also stop the keyboard listener
-keyboard.unhook_all()
+    # Create a simple menu
+    menu = Menu(MenuItem('Exit', exit_action))
+
+    # Load icon
+    image = load_icon(icon_path)
+
+    # Create a system tray icon
+    icon = Icon("Clipboard Regex Replace", image,
+                "Clipboard Regex Replace", menu)
+
+    # Run the script in a separate thread
+    script_thread = threading.Thread(target=run_script, args=(hotkey,))
+    script_thread.start()
+
+    # Run the system tray icon
+    icon.run()
+
+    # When the icon is stopped, also stop the keyboard listener
+    keyboard.unhook_all()
+
+
+if __name__ == "__main__":
+    main()
