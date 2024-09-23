@@ -11,6 +11,7 @@ This application can be used to obfuscate names, personal data or directories fr
 - System tray icon for easy access and management
 - Configurable via a JSON file
 - Custom icon support
+- Optional desktop notifications
 
 ## Requirements
 
@@ -34,6 +35,12 @@ pip install keyboard pyperclip pystray pillow
 
 3. Copy the `config.json.example` file to `config.json` and modify it according to your needs.
 
+4. (Optional) If you want to use desktop notifications, install the `plyer` package:
+
+```
+pip install plyer
+```
+
 ## Configuration
 
 The `config.json` file allows you to customize the behavior of the application. Here's an example configuration:
@@ -42,6 +49,7 @@ The `config.json` file allows you to customize the behavior of the application. 
 {
   "hotkey": "ctrl+alt+v",
   "icon_path": "path/to/your/icon.png",
+  "use_notifications": true,
   "replacements": [
     {
       "regex": "(?i)name[s]?[/\\\\]?",
@@ -57,6 +65,7 @@ The `config.json` file allows you to customize the behavior of the application. 
 
 - `hotkey`: The keyboard shortcut to trigger the replacement (default: "ctrl+alt+v")
 - `icon_path`: Path to a custom icon file (PNG format recommended)
+- `use_notifications`: Set to `true` to enable desktop notifications (requires `plyer` package)
 - `replacements`: An array of regex replacement rules
   - `regex`: The regex pattern to match
   - `replace_with`: The string to replace the matched pattern with
@@ -73,6 +82,7 @@ python clipboard_regex_replace.py
 3. Copy some text to your clipboard.
 4. Press the configured hotkey (default: Ctrl+Alt+V).
 5. The application will apply all configured regex replacements to the clipboard content and automatically paste the result.
+6. If notifications are enabled, you'll see a desktop notification confirming the replacement.
 
 ## Running at Startup
 

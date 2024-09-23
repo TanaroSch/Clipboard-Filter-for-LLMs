@@ -9,6 +9,7 @@ from pystray import Icon, Menu, MenuItem
 from PIL import Image
 import threading
 import os
+import sys
 
 # Set up logging
 logging.basicConfig(filename='clipboard_regex_replace.log', level=logging.DEBUG,
@@ -22,6 +23,68 @@ def load_config():
     except Exception as e:
         logging.error(f"Failed to load config: {str(e)}")
         return {}
+
+
+def get_clipboard_text():
+    if sys.platform == 'win32':
+        import win32clipboard
+        win32clipboard.OpenClipboard()
+        try:
+            return win32clipboard.GetClipboardData()
+        finally:
+            win32clipboard.CloseClipboard()
+    elif sys.platform == 'linux':
+        import subprocess
+        return subprocess.check_output(['xclip', '-selection', 'clipboard', '-o']).decode('utf-8')
+    else:
+        raise NotImplementedError("Unsupported platform")
+
+
+def set_clipboard_text(text):
+    if sys.platform == 'win32':
+        import win32clipboard
+        win32clipboard.OpenClipboard()
+        try:
+            win32clipboard.EmptyClipboard()
+            win32clipboard.SetClipboardText(text)
+        finally:
+            win32clipboard.CloseClipboard()
+    elif sys.platform == 'linux':
+        import subprocess
+        subprocess.run(['xclip', '-selection', 'clipboard'],
+                       input=text.encode('utf-8'))
+    else:
+        raise NotImplementedError("Unsupported platform")
+
+
+def simulate_paste():
+    if sys.platform == 'win32':
+        import win32com.client
+        shell = win32com.client.Dispatch("WScript.Shell")
+        shell.SendKeys('^v')
+    elif sys.platform == 'linux':
+        import subprocess
+        subprocess.run(['xdotool', 'key', 'ctrl+v'])
+    else:
+        raise NotImplementedError("Unsupported platform")
+
+
+def show_notification(title, message):
+    config = load_config()
+    if config.get('use_notifications', False):
+        try:
+            from plyer import notification
+            notification.notify(
+                title=title,
+                message=message,
+                app_name='Clipboard Regex Replace',
+                timeout=2  # Display for 2 seconds
+            )
+        except ImportError:
+            logging.warning(
+                "Plyer library not installed. Notifications disabled.")
+        except Exception as e:
+            logging.error(f"Failed to show notification: {str(e)}")
 
 
 def replace_clipboard_text():
@@ -45,13 +108,32 @@ def replace_clipboard_text():
         # Set the new text to clipboard
         pyperclip.copy(text)
 
-        # Wait a bit to ensure the clipboard is updated
-        sleep(0.1)
+        # Show notification
+        show_notification(
+            "Clipboard Updated", "Text has been replaced according to your regex rules.")
 
-        # Simulate Ctrl+V to paste the new text
-        keyboard.press_and_release('ctrl+v')
+        # Wait to ensure the clipboard is updated
+        sleep(0.5)
 
-        logging.info("Text replacement and paste successful")
+        # Attempt to paste
+        try:
+            if sys.platform == 'win32':
+                import win32com.client
+                shell = win32com.client.Dispatch("WScript.Shell")
+                shell.SendKeys('^v')
+            elif sys.platform == 'linux':
+                import subprocess
+                subprocess.run(['xdotool', 'key', 'ctrl+v'])
+            else:
+                raise NotImplementedError("Unsupported platform")
+            logging.info("Automatic paste attempted")
+        except Exception as paste_error:
+            logging.error(f"Automatic paste failed: {str(paste_error)}")
+            logging.info(
+                "Automatic paste failed. Please press Ctrl+V to paste manually.")
+            show_notification(
+                "Paste Failed", "Please press Ctrl+V to paste manually.")
+
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}")
         logging.error(traceback.format_exc())
